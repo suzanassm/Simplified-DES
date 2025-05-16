@@ -59,35 +59,60 @@ def div(block):
     block_right = block[5:]
     return block_left, block_right
 
+
+def xor_bits(a, b):
+    return ''.join('1' if x != y else '0' for x, y in zip(a, b))
+
+
 def s_box_substitutions(bits, s):
-    linha = int(bits[0] + bits[3], 2)  # bits 1 e 4
-    coluna = int(bits[1] + bits[2], 2)  # bits 2 e 3
+    linha = int(bits[0] + bits[3], 2)
+    coluna = int(bits[1] + bits[2], 2)
     valor_sbox = s[linha][coluna]
-    return valor_sbox # acho que aqui tá errado
+    return format(valor_sbox, '02b')
 
-def feistel_round(block_left, block_right, k):
+
+def feistel_round(block_left, block_right, k, is_first_round):
     ep_order = [3, 0, 1, 2, 1, 2, 3, 0]
-    new_right = ''.join(block_right[i] for i in ep_order)
-    new_rigth = (new_right and not k) or (not new_right and k)
-    first = new_right[0:4]
-    last = new_right[4:8]
+    new_right_ep = ''.join(block_right[i] for i in ep_order)
 
-    s0 =[[1,  0,  11,  10],
-        [11,  10,  1,  0],
-        [0,  10,  1,  11],
-        [11,  1,  11,  10]]
-    s1=[[0, 1, 10, 11],
-        [10, 0, 1, 11],
-        [11, 0, 1, 0],
-        [10, 1, 0, 11]]
+    new_right = xor_bits(new_right_ep, k)
+
+    first = new_right[:4]
+    last = new_right[4:]
+
+    s0 = [
+        [1, 0, 3, 2],
+        [3, 2, 1, 0],
+        [0, 2, 1, 3],
+        [3, 1, 3, 2]
+    ]
+    s1 = [
+        [0, 1, 2, 3],
+        [2, 0, 1, 3],
+        [3, 0, 1, 0],
+        [2, 1, 0, 3]
+    ]
+
     new_first = s_box_substitutions(first, s0)
     new_last = s_box_substitutions(last, s1)
+    right_sbox = new_first + new_last
 
     p4_order = [1, 3, 2, 0]
-    new_right = ''.join(new_first[i] for i in p4_order)
-    new_right = ''.join(new_last[i] for i in p4_order)  #fim da funcao f
+    right_sbox_p4 = ''.join(right_sbox[i] for i in p4_order)
+
+    xor_result = xor_bits(right_sbox_p4, block_left)
+
+    if is_first_round:
+        # troca L e R para próxima rodada
+        return block_right, xor_result
+    else:
+        # fim das rodadas: junta e retorna sem troca
+        return xor_result + block_right
 
 
+def permutation_inverse(bits):
+    if len(bits) != 8:
+        raise ValueError("A entrada deve ter 8 bits.")
 
-
-
+    ip_inverse_order = [3, 0, 2, 4, 6, 1, 7, 5]
+    return ''.join(bits[i] for i in ip_inverse_order)
